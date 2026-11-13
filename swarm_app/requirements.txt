@@ -1,0 +1,4 @@
+google-adk[mcp]>=2.8.0
+google-genai>=2.22.0
+toolbox-core>=0.1.0
+python-dotenv>=1.0.0
