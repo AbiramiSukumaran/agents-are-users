@@ -1,0 +1,120 @@
+sources:
+  alloydb_swarm_readpool:
+    kind: alloydb-postgres
+    project: *****
+    region: us-east4
+    cluster: *****
+    instance: *****
+    database: *****
+    user: *****
+    password: *****
+    ipType: "public"
+
+tools:
+  # 1. Catalog / Vector Agent — Hybrid Search (ScaNN + BM25 via RRF)
+  search_catalog_hybrid:
+    kind: postgres-sql
+    source: alloydb_swarm_readpool
+    description: >
+      Runs hybrid semantic (ScaNN) + keyword (BM25) search with Reciprocal Rank Fusion
+      to find backpacks matching a reference product and weather profile.
+    parameters:
+      - name: search_query
+        type: string
+        description: Semantic and lexical search phrase, e.g. 'weather-resistant backpack Aero Glow Pro'
+    statement: |
+      WITH vector_hits AS (
+        SELECT sku, ROW_NUMBER() OVER (
+          ORDER BY embedding <=> embedding('text-embedding-005', $1)::vector
+        ) AS v_rank
+        FROM outdoor_gear_catalog LIMIT 10
+      ),
+      bm25_hits AS (
+        SELECT sku, ROW_NUMBER() OVER (
+          ORDER BY description <@> to_bm25query($1, 'idx_gear_bm25')
+        ) AS k_rank
+        FROM outdoor_gear_catalog LIMIT 10
+      )
+      SELECT c.sku, c.product_name, c.description,
+             ROUND((COALESCE(1.0 / (60 + v.v_rank), 0) + COALESCE(1.0 / (60 + b.k_rank), 0))::numeric, 5) AS rrf_score
+      FROM outdoor_gear_catalog c
+      LEFT JOIN vector_hits v USING (sku)
+      LEFT JOIN bm25_hits b USING (sku)
+      WHERE v.sku IS NOT NULL OR b.sku IS NOT NULL
+      ORDER BY rrf_score DESC
+      LIMIT 5;
+
+  # 2. Inventory Agent — Live OLTP + Columnar Engine 100% Recall Filter
+  check_live_inventory_columnar:
+    kind: postgres-sql
+    source: alloydb_swarm_readpool
+    description: >
+      Verifies live transactional stock, price, and strict material exclusions (e.g., excluding leather)
+      with 100% exact recall via AlloyDB Columnar Engine.
+    parameters:
+      - name: excluded_material_keyword
+        type: string
+        description: Material substring to strictly exclude, e.g. 'leather'
+    statement: |
+      SELECT sku, product_name, material, weather_resistant, price_usd, stock_qty
+      FROM outdoor_gear_catalog
+      WHERE weather_resistant = true
+        AND stock_qty > 0
+        AND material NOT ILIKE '%' || $1 || '%'
+      ORDER BY stock_qty DESC;
+
+  # 3. Review / Quality Agent — In-DB SQL AI Functions + Smart Batching over 500k Reviews
+  analyze_strap_reviews_ai:
+    kind: postgres-sql
+    source: alloydb_swarm_readpool
+    description: >
+      Uses AlloyDB SQL AI Function ai.analyze_sentiment() with Smart Batching over the
+      500k reviews table to break down positive, negative, and neutral strap durability sentiment.
+    parameters:
+      - name: target_sku
+        type: string
+        description: Product SKU to analyze reviews for, e.g. 'ALP-40L' or 'AGX-50L'
+    statement: |
+      SELECT
+        sku,
+        ai.analyze_sentiment(review_text) AS strap_sentiment,
+        COUNT(*) AS review_count
+      FROM gear_reviews_500k
+      WHERE sku = $1
+        AND verified_expedition = true
+      GROUP BY sku, strap_sentiment
+      ORDER BY review_count DESC;
+
+  # 4. Trend / Analytics Agent — Borderless Lakehouse Federation (Zero-Copy BigQuery FDW)
+  query_lakehouse_regional_demand:
+    kind: postgres-sql
+    source: alloydb_swarm_readpool
+    description: >
+      Federates in place from AlloyDB to BigQuery (expedition_lakehouse.regional_gear_demand)
+      to fetch high-altitude regional demand and restock lead times with zero data movement.
+    parameters:
+      - name: altitude_segment
+        type: string
+        description: Target segment, e.g. 'high_altitude'
+    statement: |
+      SELECT
+        i.sku,
+        i.product_name,
+        d.region,
+        d.orders_last_30d,
+        d.aws_s3_restock_eta_days
+      FROM outdoor_gear_catalog i
+      JOIN regional_gear d ON i.sku = d.sku
+      WHERE d.altitude_tier = $1
+        AND i.stock_qty > 0
+      ORDER BY d.orders_last_30d DESC;
+
+toolsets:
+  catalog_tools:
+    - search_catalog_hybrid
+  inventory_tools:
+    - check_live_inventory_columnar
+  review_tools:
+    - analyze_strap_reviews_ai
+  lakehouse_tools:
+    - query_lakehouse_regional_demand
