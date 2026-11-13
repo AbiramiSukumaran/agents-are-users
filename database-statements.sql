@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------------------------------------------------
--- A) Hybrid Search
+-- Demo 1) Hybrid Search
 
 --AlloyDB
 
@@ -84,55 +84,8 @@ WITH vector_hits AS (
       LIMIT 5;
 
 -------------------------------------------------------------------------------------------------------------------------
--- B) Borderless Lakehouse Federation
 
---BigQuery
-
-CREATE SCHEMA IF NOT EXISTS `abis-345004.expedition_lakehouse`
-OPTIONS (location = 'us-west1');  -- Match your AlloyDB region or preferred BQ location
-
-CREATE OR REPLACE TABLE `abis-345004.expedition_lakehouse.regional_gear_demand` (
-  sku STRING,
-  region STRING,
-  altitude_tier STRING,
-  orders_last_30d INT64,
-  aws_s3_restock_eta_days INT64
-);
-
-INSERT INTO `abis-345004.expedition_lakehouse.regional_gear_demand`
-  (sku, region, altitude_tier, orders_last_30d, aws_s3_restock_eta_days)
-VALUES
-  ('AGP-45L', 'Himalayas & Ladakh', 'high_altitude', 310, 12),
-  ('AGX-50L', 'Himalayas & Ladakh', 'high_altitude', 485, 3),
-  ('ALP-40L', 'Himalayas & Ladakh', 'high_altitude', 190, 9),
-  ('CLD-42L', 'Himalayas & Ladakh', 'high_altitude', 260, 21);
-
--------------------------------------------------------------------------------------------------------------------------
-
---AlloyDB
-/* 
-Set up BigQuery Foreign Data Wrapper in AlloyDB by clicking "BigQuery Tables" and clicking on the Connect button. In the "Connect BigQuery table" 
-panel that opens up, configure your details (I'm naming the BQ table "regional_gear" in AlloyDB and select the option "View SQL Command" and choose to "Edit in Studio". 
-Then execute the query in the tab that opens. The BigQuery Table is now queryable from AlloyDB! */
-
--- Join the AlloyDB & BigQuery data in AlloyDB (Borderless Lakehouse Federation)
-
-SELECT
-  i.sku,
-  i.product_name,
-  i.stock_qty AS live_alloydb_stock,
-  d.region,
-  d.orders_last_30d AS bq_lakehouse_orders,
-  d.aws_s3_restock_eta_days
-FROM outdoor_gear_catalog i
-JOIN regional_gear d ON i.sku = d.sku
-WHERE i.stock_qty > 0
-  AND i.material NOT ILIKE '%leather%'
-ORDER BY d.orders_last_30d DESC;
-
--------------------------------------------------------------------------------------------------------------------------
-
--- C) Smart Batching and AI Functions
+-- Demo 2) Smart Batching and AI Functions
 
 -- AlloyDB
 
@@ -196,5 +149,57 @@ WHERE  verified_expedition = true
 GROUP BY sku, sentiment
 ORDER BY total_reviews DESC 
 limit 100000
+
+-------------------------------------------------------------------------------------------------------------------------
+    
+-- Demo 3) Borderless Lakehouse Federation
+
+--BigQuery
+
+CREATE SCHEMA IF NOT EXISTS `abis-345004.expedition_lakehouse`
+OPTIONS (location = 'us-west1');  -- Match your AlloyDB region or preferred BQ location
+
+CREATE OR REPLACE TABLE `abis-345004.expedition_lakehouse.regional_gear_demand` (
+  sku STRING,
+  region STRING,
+  altitude_tier STRING,
+  orders_last_30d INT64,
+  aws_s3_restock_eta_days INT64
+);
+
+INSERT INTO `abis-345004.expedition_lakehouse.regional_gear_demand`
+  (sku, region, altitude_tier, orders_last_30d, aws_s3_restock_eta_days)
+VALUES
+  ('AGP-45L', 'Himalayas & Ladakh', 'high_altitude', 310, 12),
+  ('AGX-50L', 'Himalayas & Ladakh', 'high_altitude', 485, 3),
+  ('ALP-40L', 'Himalayas & Ladakh', 'high_altitude', 190, 9),
+  ('CLD-42L', 'Himalayas & Ladakh', 'high_altitude', 260, 21);
+
+-------------------------------------------------------------------------------------------------------------------------
+
+--AlloyDB
+/* 
+Set up BigQuery Foreign Data Wrapper in AlloyDB by clicking "BigQuery Tables" and clicking on the Connect button. In the "Connect BigQuery table" 
+panel that opens up, configure your details (I'm naming the BQ table "regional_gear" in AlloyDB and select the option "View SQL Command" and choose to "Edit in Studio". 
+Then execute the query in the tab that opens. The BigQuery Table is now queryable from AlloyDB! */
+
+-- Join the AlloyDB & BigQuery data in AlloyDB (Borderless Lakehouse Federation)
+
+SELECT
+  i.sku,
+  i.product_name,
+  i.stock_qty AS live_alloydb_stock,
+  d.region,
+  d.orders_last_30d AS bq_lakehouse_orders,
+  d.aws_s3_restock_eta_days
+FROM outdoor_gear_catalog i
+JOIN regional_gear d ON i.sku = d.sku
+WHERE i.stock_qty > 0
+  AND i.material NOT ILIKE '%leather%'
+ORDER BY d.orders_last_30d DESC;
+
+-------------------------------------------------------------------------------------------------------------------------
+
+
 
 
