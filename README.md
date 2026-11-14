@@ -58,6 +58,7 @@ Standard e-commerce architectures fail when handling multi-dimensional reasoning
 ---
 
 ## Step 1: Google Cloud Project Setup & API Enablement
+Create your Google Cloud Project and associate it with an active billing account.
 
 ## Step 2: Enable required APIs
 Enable the necessary APIs:
@@ -73,19 +74,19 @@ gcloud services enable \
   run.googleapis.com
 ```
 
-## Setup AlloyDB
+## Step 3: Setup AlloyDB
 
 * Follow the steps [here](https://github.com/AbiramiSukumaran/polyglot-persist-ecommerce/tree/master#set-up-alloydb)
 
-## Step 3: Initialize Database Schema, Indexes & 500k Reviews
+## Step 4: Initialize Database Schema, Indexes & 500k Reviews
 
 * Follow the steps in the file database-demos.sql in this repo
 
-## Step 4: Configure BigQuery Borderless Lakehouse Federation
+## Step 5: Configure BigQuery Borderless Lakehouse Federation
 
 * Follow the steps in the file database-demos.sql in this repo
 
-## Step 5: Install and Configure MCP Toolbox for Databases
+## Step 6: Install and Configure MCP Toolbox for Databases
 
 ### **1\. Download the Binary**
 
@@ -124,11 +125,11 @@ bash
 Navigate to `http://localhost:5000/ui` to test individual SQL tool endpoints prior to connecting the agent app.
 
 
-## Step 6: Multi-Agent Application (Google ADK)
+## Step 7: Multi-Agent Application (Google ADK)
 
 This should already be cloned inside the folder swarp_app.
 
-## Step 7: Running the Multi-Agent Application
+## Step 8: Running the Multi-Agent Application
 
 ### **Terminal 1: MCP Toolbox Server**
 
@@ -159,5 +160,5 @@ adk web --port 8000 --allow_origins "*"
 4. Click the **Trace / Event Graph** tab to observe all four sub-agents executing concurrently against AlloyDB and BigQuery.
 
 
-## Step 8: Clean Up
+## Step 9: Clean Up
 To avoid incurring charges, delete the deployed AlloyDB resources after finishing.
